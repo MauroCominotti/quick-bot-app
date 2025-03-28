@@ -1,0 +1,6 @@
+# Rename as .env and fill your value
+
+# 0 to use ML Dev, 1 to use Vertex
+GOOGLE_GENAI_USE_VERTEXAI=1
+GOOGLE_CLOUD_PROJECT=FILL_YOUR_PROJECT_ID
+GOOGLE_CLOUD_LOCATION=us-central1
