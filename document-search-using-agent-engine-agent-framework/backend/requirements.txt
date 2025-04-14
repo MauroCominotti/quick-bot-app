@@ -17,9 +17,7 @@ langchain-community==0.3.1
 langchain-core==0.3.9
 langchain-google-vertexai==2.0.4
 
-wheels/google_genai_agents-0.0.2.dev20250204+723246417-py3-none-any.whl
-
-google-cloud-aiplatform[agent-engines]==1.86.0
+google-cloud-aiplatform[adk,agent-engines]==1.86.0
 google-cloud-bigquery==3.26.0
 google-cloud-tasks==2.16.5
 google-cloud-logging==3.11.2
