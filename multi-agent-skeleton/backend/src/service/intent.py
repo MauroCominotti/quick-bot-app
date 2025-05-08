@@ -22,6 +22,8 @@ class IntentService:
         return intent
 
     def get_all(self) -> List[Intent]:
+        print(f"[IntentService - get_all - BIG_QUERY_DATASET]: {BIG_QUERY_DATASET}")
+        print(f"[IntentService - get_all - INTENTS_TABLE]: {INTENTS_TABLE}")
         intents = []
         results = self.repository.run_query(f"SELECT * FROM `{BIG_QUERY_DATASET}.{INTENTS_TABLE}`")
         for row in results:
