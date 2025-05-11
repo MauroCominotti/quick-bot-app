@@ -14,7 +14,7 @@ poetry install --with deployment
 poetry add google-cloud-bigquery
 poetry add google-cloud-logging
 # This version is mandatory because if not breaks the dependency"google-cloud-aiplatform[agent_engines]@git+https://github.com/googleapis/python-aiplatform.git@copybara_738852226"
-poetry add google-cloud-storage@3.0.0
+poetry add google-cloud-storage@2.19.0
 poetry add requests
 
 echo "Finished prepare_code.sh script."
