@@ -20,14 +20,70 @@ import vertexai
 from vertexai import agent_engines
 from vertexai.preview.reasoning_engines import AdkApp
 from google.cloud.storage.bucket import Bucket
+from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset, StdioServerParameters
+from google.adk.tools.agent_tool import AgentTool
 # This root_agent comes after cloning the ADK repository by running prepare_code.sh
 from travel_concierge.agent import root_agent # type: ignore
+
+async def get_tools_async():
+    """
+    Gets tools from the AirBNB MCP Server.
+    """
+    print("Attempting to connect to MCP AirBNB server...")
+    tools, exit_stack = await MCPToolset.from_server(
+        connection_params=StdioServerParameters(
+        command='npx', 
+        args=["-y",   
+              "@openbnb/mcp-server-airbnb",
+              "--ignore-robots-txt",
+            ],
+          )
+        )
+    print(f"MCP Toolset: {tools}")
+    print("MCP Toolset created successfully.")
+    return tools, exit_stack
+
+def find_agent(agent, target_name):
+    """A convenient function to find an agent from an existing agent graph."""
+    result = None
+    print("Matching...", agent.name)
+    if agent.name == target_name:
+        return agent
+    for sub_agent in agent.sub_agents:
+        result = find_agent(sub_agent, target_name)
+        if result:
+            break
+    for tool in agent.tools:
+        if isinstance(tool, AgentTool):
+            result = find_agent(tool.agent, target_name)
+            if result:
+                break
+    return result
+
+async def get_agent_async():
+    """Creates an ADK Agent with tools from MCP Server."""
+    tools, exit_stack = await get_tools_async()
+    print("\nInserting Airbnb MCP tools into Travel-Concierge...")
+    planner = find_agent(root_agent, "planning_agent")
+    print("Planner Agent: ", planner)
+    if planner:
+        print("FOUND", planner.name)
+        planner.tools.extend(tools)
+        print("Planner Agent after extending Tools: ", planner)
+    else:
+        print("NOT FOUND")
+    return root_agent, exit_stack
 
 def create(env_vars: dict[str, str]) -> None:
     """Creates a new deployment."""
     print(env_vars)
+
+    # IMPORTANT! This function already returns the root_agent extending the
+    # Aribnb MCP Tools into the subagent "planning_agent" 
+    agent, exit_stack = get_agent_async()
+
     app = AdkApp(
-        agent=root_agent,
+        agent=agent,
         enable_tracing=True,
         env_vars=env_vars,
     )
