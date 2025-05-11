@@ -1,3 +1,4 @@
+import asyncio
 import os
 
 from google.cloud.bigquery import Client as BigQueryClient
@@ -27,7 +28,7 @@ try:
     bucket = create_bucket(f"quick-bot-{project_id}-travel-concierge-bucket", location, storage_client)
 
     print("Setting up Remote Agent... \n")
-    remote_agent_resource_id = setup_remote_agent(bucket)
+    remote_agent_resource_id = asyncio.run(setup_remote_agent(bucket))
 
     DEFAULT_INTENTS = [
         Intent(

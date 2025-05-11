@@ -14,7 +14,9 @@
 
 """Deployment script for Travel Concierge."""
 
+import asyncio
 import os
+import traceback
 
 import vertexai
 from vertexai import agent_engines
@@ -74,40 +76,47 @@ async def get_agent_async():
         print("NOT FOUND")
     return root_agent, exit_stack
 
-def create(env_vars: dict[str, str]) -> None:
+async def create(env_vars: dict[str, str]) -> None:
     """Creates a new deployment."""
     print(env_vars)
 
-    # IMPORTANT! This function already returns the root_agent extending the
-    # Aribnb MCP Tools into the subagent "planning_agent" 
-    agent, exit_stack = get_agent_async()
+    try:
+        # IMPORTANT! This function already returns the root_agent extending the
+        # Aribnb MCP Tools into the subagent "planning_agent" 
+        agent_definition, mcp_resource_stack = await get_agent_async()
 
-    app = AdkApp(
-        agent=agent,
-        enable_tracing=True,
-        env_vars=env_vars,
-    )
+        app = AdkApp(
+            agent=agent_definition,
+            enable_tracing=True,
+            env_vars=env_vars,
+        )
 
-    remote_agent = agent_engines.create(
-        app,
-        # IMPORTANT!!! Define the SAME dependencies in the requirements, specially for
-        # "google-cloud-aiplatform[agent_engines] @ git+https://github.com/googleapis/python-aiplatform.git@copybara_738852226" 
-        requirements=[
-            "google-adk (>=0.0.2)",
-            "google-cloud-aiplatform[agent_engines]@git+https://github.com/googleapis/python-aiplatform.git@copybara_738852226",
-            "google-genai (>=1.5.0,<2.0.0)",
-            "pydantic (>=2.10.6,<3.0.0)",
-            "absl-py (>=2.2.1,<3.0.0)",
-            "requests (>=2.32.3,<3.0.0)",
-        ],
-        extra_packages=[
-            "./travel_concierge",  # The main package
-            "./eval",
-        ],
-    )
-    print(f"Created remote agent: {remote_agent.resource_name}")
+        remote_agent = agent_engines.create(
+            app,
+            # IMPORTANT!!! Define the SAME dependencies in the requirements, specially for
+            # "google-cloud-aiplatform[agent_engines] @ git+https://github.com/googleapis/python-aiplatform.git@copybara_738852226" 
+            requirements=[
+                "google-adk (>=0.0.2)",
+                "google-cloud-aiplatform[agent_engines]@git+https://github.com/googleapis/python-aiplatform.git@copybara_738852226",
+                "google-genai (>=1.5.0,<2.0.0)",
+                "pydantic (>=2.10.6,<3.0.0)",
+                "absl-py (>=2.2.1,<3.0.0)",
+                "requests (>=2.32.3,<3.0.0)",
+            ],
+            extra_packages=[
+                "./travel_concierge",  # The main package
+                "./eval",
+            ],
+        )
+        print(f"Created remote agent: {remote_agent.resource_name}")
 
-    return remote_agent.resource_name
+        return remote_agent.resource_name
+    finally:
+        # Ensure MCP resources are cleaned up even if AdkApp or agent_engines.create fails
+        if mcp_resource_stack:
+            print("Closing MCP toolset connection...")
+            await mcp_resource_stack.aclose() # Crucial: properly close the async resources
+            print("MCP toolset connection closed.")
 
 
 def delete(resource_id: str) -> None:
@@ -117,7 +126,7 @@ def delete(resource_id: str) -> None:
     return resource_id
 
 
-def setup_remote_agent(bucket: Bucket) -> str | None:
+async def setup_remote_agent(bucket: Bucket) -> str | None:
     """
     Sets up the Vertex AI Agent Engine deployment using environment variables.
 
@@ -185,10 +194,11 @@ def setup_remote_agent(bucket: Bucket) -> str | None:
 
     # --- Create the deployment ---
     try:
-        resource_name = create(env_vars)
+        resource_name = await create(env_vars)
         return resource_name
     except Exception as e:
         print(f"Error during agent engine creation: {e}")
+        print(traceback.format_exc())
         return None  # Indicate failure
 
 
