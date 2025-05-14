@@ -60,7 +60,7 @@ export class MainComponent {
 
   private readonly destroyed = new ReplaySubject<void>(1);
   toolTipText: string | undefined;
-  tooltipTextTimeout: undefined | ReturnType<typeof setTimeout>;;
+  tooltipTextTimeout: undefined | ReturnType<typeof setTimeout>;
 
   constructor(private router: Router,
     private broadcastService: BroadcastService,
