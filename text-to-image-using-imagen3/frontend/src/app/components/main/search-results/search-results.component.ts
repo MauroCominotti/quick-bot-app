@@ -1,14 +1,9 @@
 import {Component, OnDestroy, ViewChild, TemplateRef} from '@angular/core';
 import {SearchService} from 'src/app/services/search.service';
-import {ReplaySubject, takeUntil} from 'rxjs';
+import {ReplaySubject} from 'rxjs';
 import {UserService} from 'src/app/services/user/user.service';
 import {ActivatedRoute, Router} from '@angular/router';
-import {
-  search_document_type,
-  search_image_type,
-  PDF,
-  image_name,
-} from 'src/environments/constant';
+import {PDF, image_name} from 'src/environments/constant';
 import {
   DomSanitizer,
   SafeResourceUrl,
@@ -16,9 +11,9 @@ import {
 } from '@angular/platform-browser';
 import {MatDialog} from '@angular/material/dialog';
 import {GeneratedImage} from 'src/app/models/generated-image.model';
-import { SearchRequest } from 'src/app/models/search.model';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { ToastMessageComponent } from '../../toast-message/toast-message.component';
+import {SearchRequest} from 'src/app/models/search.model';
+import {MatSnackBar} from '@angular/material/snack-bar';
+import {ToastMessageComponent} from '../../toast-message/toast-message.component';
 
 interface Imagen3Model {
   value: string;
@@ -29,7 +24,9 @@ interface AspectRatio {
   value: string;
   viewValue: string;
 }
-
+interface Style {
+  value: string;
+}
 @Component({
   selector: 'app-search-results',
   templateUrl: './search-results.component.html',
@@ -40,9 +37,10 @@ export class SearchResultsComponent implements OnDestroy {
   previewRef!: TemplateRef<{}>;
   summary = '';
   private readonly destroyed = new ReplaySubject<void>(1);
-  serachResult: any = [];
+  searchResult: any = [];
+  isLoading = false;
   documents: any = [];
-  showDefaultDocuments: boolean = false;
+  showDefaultDocuments = false;
   images: any = [];
   pdf = PDF;
   imageName = image_name;
@@ -53,6 +51,9 @@ export class SearchResultsComponent implements OnDestroy {
   selectedDocument: any;
   safeUrl: SafeUrl | undefined;
   selectedResult: GeneratedImage | undefined;
+  selectedImageStyle = 'Modern';
+  currentSearchTerm = '';
+  numberOfResults = 4;
   imagen3ModelsList: Imagen3Model[] = [
     {value: 'imagen-3.0-generate-001', viewValue: 'imagen-3.0-generate-001'},
     {
@@ -76,8 +77,18 @@ export class SearchResultsComponent implements OnDestroy {
   searchRequest: SearchRequest = {
     term: '',
     model: this.selectedModel,
-    aspectRatio: '1:1',
+    aspectRatio: this.selectedAspectRatio.value,
+    imageStyle: this.selectedImageStyle,
+    numberOfImages: this.numberOfResults,
   };
+  imageStyleList: Style[] = [
+    {value: 'Modern'},
+    {value: 'Realistic'},
+    {value: 'Vintage'},
+    {value: 'Monochrome'},
+    {value: 'Fantasy'},
+  ];
+  activatedRoute: ActivatedRoute | null | undefined;
 
   constructor(
     private router: Router,
@@ -109,13 +120,14 @@ export class SearchResultsComponent implements OnDestroy {
     }
 
     this.searchRequest.term = query || '';
+    this.currentSearchTerm = query;
     const newSearchRequest = this.searchRequest;
 
     this.service.search(newSearchRequest).subscribe({
       next: (searchResponse: GeneratedImage[]) => {
         this.summary = searchResponse?.[0]?.enhancedPrompt || '';
         this.documents = searchResponse;
-        this.serachResult.forEach((element: GeneratedImage) => {
+        this.searchResult.forEach((element: GeneratedImage) => {
           this.images.push(element.image?.encodedImage);
         });
         this.selectedResult = searchResponse[0];
@@ -160,7 +172,6 @@ export class SearchResultsComponent implements OnDestroy {
     );
 
     let errorMessage = '';
-    let triedToGeneratePersons = false;
     if (error?.error?.detail?.[0]?.msg)
       errorMessage = `${error?.error?.detail?.[0]?.msg} - ${error?.error?.detail?.[0]?.loc}`;
     else if (error?.error?.detail)
@@ -169,7 +180,6 @@ export class SearchResultsComponent implements OnDestroy {
           "The image you want to edit contains content that has been blocked because you selected the 'Don't allow' option for Person Generation."
         )
       ) {
-        triedToGeneratePersons = true;
         errorMessage =
           'The image you want to edit contains content that has been blocked because there are persons in it. See the safety settings documentation for more details.';
       } else errorMessage = error?.error?.detail;
@@ -188,47 +198,64 @@ export class SearchResultsComponent implements OnDestroy {
   }
 
   goToResults(term: string) {
-    this.router.navigate(['/search'], {queryParams: {q: term}});  
+    this.router.navigate(['/search'], {queryParams: {q: term}});
   }
 
   searchTerm({
     term,
     aspectRatio,
     model,
+    imageStyle,
+    numberOfImages,
   }: {
     term?: string | undefined;
     aspectRatio?: string | undefined;
     model?: string | undefined;
+    imageStyle?: string | undefined;
+    numberOfImages?: number | undefined;
   }) {
-    if (!term) return
+    if (!term) return;
 
     this.showDefaultDocuments = false;
     this.userService.showLoading();
-    this.serachResult = [];
+    this.searchResult = [];
     this.summary = '';
     this.documents = [];
     this.images = [];
-    this.router.navigate(['/search'], {queryParams: {q: term}});
-    if (term) this.searchRequest.term = term;
-    if (aspectRatio) this.searchRequest.aspectRatio = aspectRatio;
-    if (model) this.searchRequest.model = model;
+
+    this.searchRequest.term = term || this.searchRequest.term;
+    this.searchRequest.aspectRatio =
+      aspectRatio || this.selectedAspectRatio.value;
+    this.searchRequest.model = model || this.selectedModel;
+    this.searchRequest.imageStyle = imageStyle || this.selectedImageStyle;
+    this.searchRequest.numberOfImages = numberOfImages || this.numberOfResults;
+
     const newSearchRequest = this.searchRequest;
+    console.log('Search request:', newSearchRequest);
+    this.currentSearchTerm = newSearchRequest.term;
 
     this.service.search(newSearchRequest).subscribe({
       next: (searchResponse: any) => {
         this.summary = searchResponse?.[0]?.enhancedPrompt || '';
         this.documents = searchResponse;
-        this.serachResult.forEach((element: GeneratedImage) => {
+        this.searchResult.forEach((element: GeneratedImage) => {
           this.images.push(element.image?.encodedImage);
         });
         this.selectedResult = searchResponse[0];
         this.userService.hideLoading();
+        console.log('Search response:', searchResponse);
       },
       error: error => {
         console.error('Search error:', error);
         this.userService.hideLoading();
         this.showErrorSnackBar(error);
       },
+    });
+
+    this.router.navigate([], {
+      relativeTo: this.activatedRoute,
+      queryParams: {q: this.currentSearchTerm},
+      queryParamsHandling: '',
     });
   }
 
@@ -248,6 +275,17 @@ export class SearchResultsComponent implements OnDestroy {
   changeAspectRatio(aspectRatio: AspectRatio) {
     this.selectedAspectRatio = aspectRatio;
     this.searchTerm({aspectRatio: aspectRatio.value});
+    console.log('Selected Aspect Ratio:', this.selectedAspectRatio);
+  }
+
+  changeImageStyle(style: Style) {
+    this.selectedImageStyle = style.value;
+    console.log('Selected Image Style:', this.selectedImageStyle);
+  }
+
+  onNumberOfResultsChange(event: any) {
+    this.numberOfResults = event.target.value;
+    console.log('Selected Number of Results:', this.numberOfResults);
   }
 
   previewDocument(event: any, document: any) {
