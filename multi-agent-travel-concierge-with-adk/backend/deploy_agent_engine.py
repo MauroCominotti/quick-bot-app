@@ -20,8 +20,10 @@ import vertexai
 from vertexai import agent_engines
 from vertexai.preview.reasoning_engines import AdkApp
 from google.cloud.storage.bucket import Bucket
+
 # This root_agent comes after cloning the ADK repository by running prepare_code.sh
-from travel_concierge.agent import root_agent # type: ignore
+from travel_concierge.agent import root_agent  # type: ignore
+
 
 def create(env_vars: dict[str, str]) -> None:
     """Creates a new deployment."""
@@ -34,12 +36,8 @@ def create(env_vars: dict[str, str]) -> None:
     remote_agent = agent_engines.create(
         app,
         requirements=[
-            "google-adk (==0.5.0)",
-            "google-cloud-aiplatform[agent_engines]@git+https://github.com/googleapis/python-aiplatform.git@copybara_738852226",
-            "google-genai (>=1.5.0,<2.0.0)",
-            "pydantic (>=2.10.6,<3.0.0)",
-            "absl-py (>=2.2.1,<3.0.0)",
-            "requests (>=2.32.3,<3.0.0)",
+            "google-adk==1.5.0",
+            "google-cloud-aiplatform[agent_engines,adk]==1.101.0",
         ],
         extra_packages=[
             "./travel_concierge",  # The main package
@@ -77,7 +75,11 @@ def setup_remote_agent(bucket: Bucket) -> str | None:
     # This will be loaded upon first user interaction.
     # Uncomment one of the two, or create your own.
     # _ADK_TRAVEL_CONCIERGE_SCENARIO=profiles/itinerary_seattle_example.json
-    initial_states_path = os.getenv("_ADK_TRAVEL_CONCIERGE_SCENARIO") if os.getenv("_ADK_TRAVEL_CONCIERGE_SCENARIO") else "eval/itinerary_empty_default.json"
+    initial_states_path = (
+        os.getenv("_ADK_TRAVEL_CONCIERGE_SCENARIO")
+        if os.getenv("_ADK_TRAVEL_CONCIERGE_SCENARIO")
+        else "eval/itinerary_empty_default.json"
+    )
     map_key = os.getenv("_ADK_GOOGLE_PLACES_API_KEY")
 
     # Populate env_vars dictionary for the AdkApp
